@@ -2,7 +2,6 @@
 Vercel serverless function entry point for CalEE
 
 This file serves as the entry point for Vercel's Python runtime.
-It wraps the FastAPI application to work with Vercel's serverless functions.
 """
 import sys
 import os
@@ -29,6 +28,8 @@ os.makedirs('/tmp/uploads', exist_ok=True)
 # 导入 FastAPI 应用
 from app.main import app
 
-# Vercel Python Runtime 需要 ASGI 应用
-# FastAPI app 本身就是 ASGI 应用，直接导出即可
-handler = app
+# 使用 Mangum 将 ASGI 应用转换为 Vercel 兼容的 handler
+from mangum import Mangum
+
+# 创建 Vercel 兼容的 handler
+handler = Mangum(app, lifespan="off")
