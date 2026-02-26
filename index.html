@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CalEE - 饮食热量追踪</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 20px); }
+        .progress-ring-circle { transition: stroke-dashoffset 0.5s ease; transform: rotate(-90deg); transform-origin: 50% 50%; }
+        .card-hover { transition: transform 0.2s ease; }
+        .card-hover:active { transform: scale(0.98); }
+        .page { display: none; }
+        .page.active { display: block; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-50 pb-20">
+    <div id="app" x-data="caleeApp()" x-init="initApp()">
+        <!-- 首页 -->
+        <div id="page-home" class="page active">
+            <header class="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-b-3xl shadow-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <p class="text-green-100 text-sm" x-text="greeting"></p>
+                        <h1 class="text-2xl font-bold">欢迎使用 CalEE</h1>
+                    </div>
+                    <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                        <i data-lucide="user" class="w-6 h-6"></i>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button @click="changeDate(-1)" class="p-2 hover:bg-white/10 rounded-full">
+                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                    </button>
+                    <span class="flex-1 text-center font-medium" x-text="formatDate(selectedDate)"></span>
+                    <button @click="changeDate(1)" :disabled="isToday()" class="p-2 hover:bg-white/10 rounded-full disabled:opacity-30">
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </header>
+
+            <main class="p-4 space-y-4">
+                <!-- 进度卡片 -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                    <div class="flex items-center justify-center gap-8">
+                        <div class="relative">
+                            <svg class="w-40 h-40" viewBox="0 0 160 160">
+                                <circle cx="80" cy="80" r="70" fill="none" stroke="#e5e7eb" stroke-width="12"/>
+                                <circle class="progress-ring-circle" cx="80" cy="80" r="70" fill="none"
+                                    :stroke="getProgressColor(summary.percentage)"
+                                    stroke-width="12" stroke-linecap="round"
+                                    :stroke-dasharray="circumference"
+                                    :stroke-dashoffset="getProgressOffset(summary.percentage)"/>
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span class="text-4xl font-bold" :class="getTextColor(summary.percentage)" x-text="Math.round(summary.calories)"></span>
+                                <span class="text-sm text-gray-500">/<span x-text="dailyGoal"></span> 卡</span>
+                            </div>
+                        </div>
+                        <div class="space-y-3">
+                            <div><p class="text-sm text-gray-500">剩余</p><p class="text-2xl font-semibold text-green-600" x-text="Math.round(dailyGoal - summary.calories)"></p></div>
+                            <div><p class="text-sm text-gray-500">完成度</p><p class="text-2xl font-semibold" :class="getTextColor(summary.percentage)" x-text="Math.round(summary.percentage) + '%'"></p></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 宏量营养素 -->
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="bg-white rounded-xl p-4 shadow-sm text-center">
+                        <div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                            <i data-lucide="wheat" class="w-5 h-5 text-orange-500"></i>
+                        </div>
+                        <p class="text-sm text-gray-500">碳水</p>
+                        <p class="font-bold text-lg" x-text="Math.round(summary.carbs) + 'g'"></p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm text-center">
+                        <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                            <i data-lucide="drumstick" class="w-5 h-5 text-red-500"></i>
+                        </div>
+                        <p class="text-sm text-gray-500">蛋白质</p>
+                        <p class="font-bold text-lg" x-text="Math.round(summary.protein) + 'g'"></p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm text-center">
+                        <div class="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                            <i data-lucide="droplet" class="w-5 h-5 text-yellow-500"></i>
+                        </div>
+                        <p class="text-sm text-gray-500">脂肪</p>
+                        <p class="font-bold text-lg" x-text="Math.round(summary.fat) + 'g'"></p>
+                    </div>
+                </div>
+
+                <!-- 餐食记录 -->
+                <template x-for="mealType in ['breakfast', 'lunch', 'dinner', 'snack']">
+                    <div class="bg-white rounded-xl p-4 shadow-sm">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center" :class="getMealIconBg(mealType)">
+                                    <i :data-lucide="getMealIcon(mealType)" class="w-5 h-5" :class="getMealIconColor(mealType)"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold" x-text="getMealLabel(mealType)"></h3>
+                                    <p class="text-sm text-gray-500" x-text="getMealCalories(mealType)"></p>
+                                </div>
+                            </div>
+                            <button @click="showAddFoodModal(mealType)" class="text-green-600">
+                                <i data-lucide="plus-circle" class="w-6 h-6"></i>
+                            </button>
+                        </div>
+                        <div x-show="getMealFoods(mealType).length > 0" class="space-y-2">
+                            <template x-for="entry in getMealFoods(mealType)">
+                                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                                            <i data-lucide="apple" class="w-6 h-6 text-gray-300"></i>
+                                        </div>
+                                        <div>
+                                            <p class="font-medium" x-text="entry.food.name"></p>
+                                            <p class="text-sm text-gray-500" x-text="entry.servings + ' 份 × ' + Math.round(entry.food.calories * entry.servings) + ' 卡'"></p>
+                                        </div>
+                                    </div>
+                                    <button @click="deleteEntry(mealType, entry.id)" class="text-red-400">
+                                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </main>
+        </div>
+
+        <!-- 搜索页面 -->
+        <div id="page-search" class="page">
+            <header class="bg-white p-4 sticky top-0 z-10 shadow-sm">
+                <h1 class="text-xl font-bold mb-4">搜索食物</h1>
+                <div class="relative">
+                    <i data-lucide="search" class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" x-model="searchQuery" placeholder="搜索食物..." class="w-full pl-10 pr-4 py-3 bg-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500">
+                </div>
+            </header>
+            <main class="p-4 space-y-3">
+                <template x-for="food in filteredFoods" :key="food.id">
+                    <div @click="showFoodDetail(food)" class="bg-white rounded-xl p-4 shadow-sm card-hover">
+                        <div class="flex items-center gap-4">
+                            <div class="w-16 h-16 rounded-xl bg-gray-100 flex items-center justify-center">
+                                <i data-lucide="apple" class="w-8 h-8 text-gray-300"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="font-semibold" x-text="food.name"></h3>
+                                <p class="text-sm text-gray-500"><span x-text="Math.round(food.calories)"></span> 卡/<span x-text="food.serving_size"></span><span x-text="food.serving_unit"></span></p>
+                            </div>
+                            <i data-lucide="chevron-right" class="w-5 h-5 text-gray-300"></i>
+                        </div>
+                    </div>
+                </template>
+            </main>
+        </div>
+
+        <!-- 拍照页面 -->
+        <div id="page-camera" class="page">
+            <header class="bg-white p-4 shadow-sm">
+                <h1 class="text-xl font-bold">拍照识别</h1>
+                <p class="text-sm text-gray-500 mt-1">拍摄食物照片，AI 自动识别热量</p>
+            </header>
+            <main class="p-4">
+                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                    <div @click="$refs.fileInput.click()" class="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer" :class="previewImage ? 'border-green-500 bg-green-50' : 'border-gray-300'">
+                        <input type="file" x-ref="fileInput" @change="handleFileSelect" accept="image/*" class="hidden">
+                        <div x-show="previewImage" class="mb-4">
+                            <img :src="previewImage" class="max-h-64 mx-auto rounded-lg">
+                        </div>
+                        <div x-show="!previewImage">
+                            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i data-lucide="camera" class="w-8 h-8 text-green-500"></i>
+                            </div>
+                            <p class="font-medium">点击上传图片</p>
+                            <p class="text-sm text-gray-500 mt-1">支持 JPG、PNG，最大 5MB</p>
+                        </div>
+                    </div>
+                    <button @click="recognizeFood" :disabled="!previewImage || recognizing" class="w-full mt-4 py-3 bg-green-500 text-white rounded-xl font-medium disabled:opacity-50">
+                        <span x-show="!recognizing">开始识别</span>
+                        <span x-show="recognizing">识别中...</span>
+                    </button>
+                </div>
+                <div x-show="recognizedFoods.length > 0" class="mt-4 space-y-3">
+                    <h2 class="font-semibold">识别结果</h2>
+                    <template x-for="food in recognizedFoods">
+                        <div class="bg-white rounded-xl p-4 shadow-sm">
+                            <div class="flex items-start justify-between mb-3">
+                                <div>
+                                    <h3 class="font-semibold text-lg" x-text="food.name"></h3>
+                                    <p class="text-sm text-gray-500">置信度: <span x-text="Math.round(food.confidence * 100)"></span>%</p>
+                                </div>
+                                <p class="text-2xl font-bold text-green-600" x-text="Math.round(food.estimated_calories)"></p>
+                            </div>
+                            <button @click="addRecognizedFood(food)" class="w-full py-2 bg-green-500 text-white rounded-lg text-sm">添加到记录</button>
+                        </div>
+                    </template>
+                </div>
+            </main>
+        </div>
+
+        <!-- 进度页面 -->
+        <div id="page-progress" class="page">
+            <header class="bg-white p-4 shadow-sm">
+                <h1 class="text-xl font-bold">进度统计</h1>
+            </header>
+            <main class="p-4">
+                <div class="bg-white rounded-xl p-4 shadow-sm mb-4">
+                    <h3 class="font-semibold mb-3">本周概览</h3>
+                    <div class="flex justify-between">
+                        <template x-for="day in weekDays">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-500 mb-2" x-text="day.label"></p>
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium mx-auto"
+                                     :class="getDayColor(day.percentage)" x-text="Math.round(day.percentage) + '%'"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- 设置页面 -->
+        <div id="page-settings" class="page">
+            <header class="bg-white p-4 shadow-sm">
+                <h1 class="text-xl font-bold">设置</h1>
+            </header>
+            <main class="p-4 space-y-4">
+                <div class="bg-white rounded-xl p-4 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold">每日热量目标</h3>
+                        <button @click="editingGoal = true" x-show="!editingGoal" class="text-green-600 text-sm">编辑</button>
+                    </div>
+                    <div x-show="!editingGoal">
+                        <p class="text-3xl font-bold text-green-600" x-text="dailyGoal + ' 卡'"></p>
+                    </div>
+                    <div x-show="editingGoal" class="flex items-center gap-3">
+                        <input type="number" x-model="tempGoal" min="500" max="5000" class="flex-1 px-4 py-2 border rounded-lg">
+                        <button @click="saveGoal" class="px-4 py-2 bg-green-500 text-white rounded-lg">保存</button>
+                        <button @click="editingGoal = false" class="px-4 py-2 bg-gray-100 rounded-lg">取消</button>
+                    </div>
+                </div>
+                <button @click="clearAllData" class="w-full bg-red-50 text-red-600 rounded-xl p-4">清空所有数据</button>
+            </main>
+        </div>
+
+        <!-- 食物详情弹窗 -->
+        <div x-show="showDetailModal" class="fixed inset-0 bg-black/50 flex items-end justify-center z-50" x-cloak>
+            <div class="bg-white w-full max-w-lg rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold" x-text="selectedFood?.name"></h2>
+                    <button @click="showDetailModal = false"><i data-lucide="x" class="w-6 h-6"></i></button>
+                </div>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-4 gap-2">
+                        <button @click="detailServings = 0.5" :class="detailServings === 0.5 ? 'bg-green-500 text-white' : 'bg-gray-100'" class="py-2 rounded-lg text-sm">0.5</button>
+                        <button @click="detailServings = 1" :class="detailServings === 1 ? 'bg-green-500 text-white' : 'bg-gray-100'" class="py-2 rounded-lg text-sm">1</button>
+                        <button @click="detailServings = 1.5" :class="detailServings === 1.5 ? 'bg-green-500 text-white' : 'bg-gray-100'" class="py-2 rounded-lg text-sm">1.5</button>
+                        <button @click="detailServings = 2" :class="detailServings === 2 ? 'bg-green-500 text-white' : 'bg-gray-100'" class="py-2 rounded-lg text-sm">2</button>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-4">
+                        <p class="text-gray-600">总热量</p>
+                        <p class="text-2xl font-bold text-green-600" x-text="Math.round((selectedFood?.calories || 0) * detailServings) + ' 卡'"></p>
+                    </div>
+                    <button @click="addFoodFromDetail" class="w-full py-3 bg-green-500 text-white rounded-xl">添加到记录</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 添加食物弹窗 -->
+        <div x-show="showAddModal" class="fixed inset-0 bg-black/50 flex items-end justify-center z-50" x-cloak>
+            <div class="bg-white w-full max-w-lg rounded-t-3xl p-6">
+                <h3 class="text-lg font-semibold mb-4">选择添加到哪一餐</h3>
+                <div class="space-y-2">
+                    <template x-for="type in ['breakfast', 'lunch', 'dinner', 'snack']">
+                        <button @click="addFoodToMeal(type)" class="w-full py-3 bg-gray-100 rounded-xl text-left px-4 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center" :class="getMealIconBg(type)">
+                                <i :data-lucide="getMealIcon(type)" class="w-5 h-5" :class="getMealIconColor(type)"></i>
+                            </div>
+                            <span x-text="getMealLabel(type)"></span>
+                        </button>
+                    </template>
+                </div>
+                <button @click="showAddModal = false" class="w-full mt-4 py-3 text-gray-500">取消</button>
+            </div>
+        </div>
+
+        <!-- 底部导航 -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom z-40">
+            <div class="max-w-lg mx-auto flex justify-around items-center h-16">
+                <button @click="showPage('home')" class="nav-item flex flex-col items-center justify-center w-full h-full" :class="currentPage === 'home' ? 'text-green-600' : 'text-gray-400'">
+                    <i data-lucide="home" class="w-6 h-6"></i>
+                    <span class="text-xs mt-1">首页</span>
+                </button>
+                <button @click="showPage('search')" class="nav-item flex flex-col items-center justify-center w-full h-full" :class="currentPage === 'search' ? 'text-green-600' : 'text-gray-400'">
+                    <i data-lucide="search" class="w-6 h-6"></i>
+                    <span class="text-xs mt-1">搜索</span>
+                </button>
+                <button @click="showPage('camera')" class="nav-item flex flex-col items-center justify-center w-full h-full relative">
+                    <div class="absolute -top-6 bg-green-500 rounded-full w-14 h-14 flex items-center justify-center shadow-lg">
+                        <i data-lucide="camera" class="w-7 h-7 text-white"></i>
+                    </div>
+                    <span class="text-xs mt-8 text-gray-400">拍照</span>
+                </button>
+                <button @click="showPage('progress')" class="nav-item flex flex-col items-center justify-center w-full h-full" :class="currentPage === 'progress' ? 'text-green-600' : 'text-gray-400'">
+                    <i data-lucide="bar-chart-2" class="w-6 h-6"></i>
+                    <span class="text-xs mt-1">进度</span>
+                </button>
+                <button @click="showPage('settings')" class="nav-item flex flex-col items-center justify-center w-full h-full" :class="currentPage === 'settings' ? 'text-green-600' : 'text-gray-400'">
+                    <i data-lucide="settings" class="w-6 h-6"></i>
+                    <span class="text-xs mt-1">设置</span>
+                </button>
+            </div>
+        </nav>
+    </div>
+
+    <script>
+        // 中文食物数据库
+        const FOODS_DATABASE = [
+            {id: 1, name: "白米饭", calories: 195, carbs: 43, protein: 4, fat: 0.5, serving_size: 150, serving_unit: "g", category: "main"},
+            {id: 2, name: "面条", calories: 220, carbs: 45, protein: 6, fat: 2, serving_size: 150, serving_unit: "g", category: "main"},
+            {id: 3, name: "馒头", calories: 230, carbs: 48, protein: 7, fat: 1, serving_size: 100, serving_unit: "g", category: "main"},
+            {id: 4, name: "饺子", calories: 240, carbs: 30, protein: 12, fat: 9, serving_size: 100, serving_unit: "g", category: "main"},
+            {id: 5, name: "炒青菜", calories: 80, carbs: 6, protein: 2, fat: 5, serving_size: 100, serving_unit: "g", category: "vegetable"},
+            {id: 6, name: "西红柿炒蛋", calories: 140, carbs: 6, protein: 9, fat: 9, serving_size: 100, serving_unit: "g", category: "vegetable"},
+            {id: 7, name: "红烧肉", calories: 350, carbs: 12, protein: 18, fat: 28, serving_size: 100, serving_unit: "g", category: "side"},
+            {id: 8, name: "清蒸鱼", calories: 120, carbs: 3, protein: 22, fat: 3, serving_size: 100, serving_unit: "g", category: "side"},
+            {id: 9, name: "宫保鸡丁", calories: 200, carbs: 12, protein: 18, fat: 10, serving_size: 100, serving_unit: "g", category: "side"},
+            {id: 10, name: "麻婆豆腐", calories: 150, carbs: 8, protein: 10, fat: 10, serving_size: 100, serving_unit: "g", category: "vegetable"},
+            {id: 11, name: "苹果", calories: 78, carbs: 21, protein: 0.3, fat: 0.3, serving_size: 150, serving_unit: "g", category: "fruit"},
+            {id: 12, name: "香蕉", calories: 105, carbs: 27, protein: 1.3, fat: 0.4, serving_size: 120, serving_unit: "g", category: "fruit"},
+            {id: 13, name: "橙子", calories: 70, carbs: 18, protein: 1.5, fat: 0.2, serving_size: 150, serving_unit: "g", category: "fruit"},
+            {id: 14, name: "酸奶", calories: 100, carbs: 12, protein: 8, fat: 3, serving_size: 150, serving_unit: "ml", category: "snack"},
+            {id: 15, name: "牛奶", calories: 150, carbs: 12, protein: 8, fat: 8, serving_size: 250, serving_unit: "ml", category: "drink"},
+            {id: 16, name: "豆浆", calories: 100, carbs: 6, protein: 8, fat: 4, serving_size: 250, serving_unit: "ml", category: "drink"},
+            {id: 17, name: "鸡蛋", calories: 70, carbs: 0.6, protein: 6, fat: 5, serving_size: 50, serving_unit: "g", category: "side"},
+            {id: 18, name: "西兰花", calories: 55, carbs: 11, protein: 4, fat: 0.5, serving_size: 100, serving_unit: "g", category: "vegetable"},
+            {id: 19, name: "土豆", calories: 77, carbs: 17, protein: 2, fat: 0.1, serving_size: 100, serving_unit: "g", category: "main"},
+            {id: 20, name: "紫菜蛋花汤", calories: 80, carbs: 5, protein: 6, fat: 4, serving_size: 200, serving_unit: "ml", category: "side"},
+        ];
+
+        function caleeApp() {
+            return {
+                // 页面状态
+                currentPage: 'home',
+                selectedDate: new Date(),
+                circumference: 2 * Math.PI * 70,
+                dailyGoal: 1200,
+                tempGoal: 1200,
+                editingGoal: false,
+
+                // 搜索状态
+                searchQuery: '',
+
+                // 摄像头状态
+                previewImage: null,
+                selectedFile: null,
+                recognizing: false,
+                recognizedFoods: [],
+
+                // 弹窗状态
+                showDetailModal: false,
+                showAddModal: false,
+                selectedFood: null,
+                detailServings: 1,
+                pendingFood: null,
+                pendingMealType: null,
+
+                // 数据
+                meals: {breakfast: [], lunch: [], dinner: [], snack: []},
+
+                // 计算属性
+                get greeting() {
+                    const hour = new Date().getHours();
+                    if (hour < 6) return '夜深了';
+                    if (hour < 9) return '早上好';
+                    if (hour < 12) return '上午好';
+                    if (hour < 14) return '中午好';
+                    if (hour < 18) return '下午好';
+                    if (hour < 22) return '晚上好';
+                    return '夜深了';
+                },
+
+                get summary() {
+                    const allEntries = Object.values(this.meals).flat();
+                    const calories = allEntries.reduce((sum, e) => sum + (e.food.calories * e.servings), 0);
+                    const carbs = allEntries.reduce((sum, e) => sum + (e.food.carbs * e.servings), 0);
+                    const protein = allEntries.reduce((sum, e) => sum + (e.food.protein * e.servings), 0);
+                    const fat = allEntries.reduce((sum, e) => sum + (e.food.fat * e.servings), 0);
+                    const percentage = this.dailyGoal > 0 ? (calories / this.dailyGoal * 100) : 0;
+                    return {calories, carbs, protein, fat, percentage: Math.min(100, percentage)};
+                },
+
+                get filteredFoods() {
+                    if (!this.searchQuery) return FOODS_DATABASE;
+                    return FOODS_DATABASE.filter(f => f.name.includes(this.searchQuery));
+                },
+
+                get weekDays() {
+                    const days = [];
+                    for (let i = 6; i >= 0; i--) {
+                        const date = new Date();
+                        date.setDate(date.getDate() - i);
+                        const dateStr = this.formatDateForAPI(date);
+                        const saved = this.loadDayData(dateStr);
+                        const total = Object.values(saved).flat().reduce((sum, e) => sum + (e.food.calories * e.servings), 0);
+                        days.push({
+                            date: dateStr,
+                            label: this.getDayLabel(date),
+                            percentage: this.dailyGoal > 0 ? (total / this.dailyGoal * 100) : 0
+                        });
+                    }
+                    return days;
+                },
+
+                // 初始化
+                initApp() {
+                    this.loadData();
+                    this.updateIcons();
+                },
+
+                loadData() {
+                    // 加载目标
+                    const savedGoal = localStorage.getItem('calee_goal');
+                    if (savedGoal) this.dailyGoal = parseInt(savedGoal);
+
+                    // 加载当天数据
+                    const dateStr = this.formatDateForAPI(this.selectedDate);
+                    this.meals = this.loadDayData(dateStr);
+                },
+
+                loadDayData(dateStr) {
+                    const saved = localStorage.getItem('calee_meals_' + dateStr);
+                    if (saved) {
+                        try {
+                            return JSON.parse(saved);
+                        } catch(e) {}
+                    }
+                    return {breakfast: [], lunch: [], dinner: [], snack: []};
+                },
+
+                saveData() {
+                    const dateStr = this.formatDateForAPI(this.selectedDate);
+                    localStorage.setItem('calee_meals_' + dateStr, JSON.stringify(this.meals));
+                    localStorage.setItem('calee_goal', this.dailyGoal.toString());
+                },
+
+                // 页面切换
+                showPage(page) {
+                    this.currentPage = page;
+                    document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+                    document.getElementById('page-' + page).classList.add('active');
+                    this.updateIcons();
+                },
+
+                updateIcons() {
+                    lucide.createIcons();
+                },
+
+                // 日期相关
+                formatDate(date) {
+                    const today = new Date();
+                    if (date.toDateString() === today.toDateString()) return '今天';
+                    const tomorrow = new Date(today);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    if (date.toDateString() === tomorrow.toDateString()) return '明天';
+                    const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+                    return `${date.getMonth() + 1}月${date.getDate()}日 ${weekdays[date.getDay()]}`;
+                },
+
+                formatDateForAPI(date) {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                },
+
+                changeDate(days) {
+                    this.selectedDate.setDate(this.selectedDate.getDate() + days);
+                    this.selectedDate = new Date(this.selectedDate);
+                    const dateStr = this.formatDateForAPI(this.selectedDate);
+                    this.meals = this.loadDayData(dateStr);
+                },
+
+                isToday() {
+                    return this.selectedDate.toDateString() === new Date().toDateString();
+                },
+
+                // 进度条
+                getProgressOffset(percentage) {
+                    return this.circumference - (Math.min(100, percentage) / 100) * this.circumference;
+                },
+
+                getProgressColor(percentage) {
+                    if (percentage >= 100) return '#ef4444';
+                    if (percentage >= 80) return '#f59e0b';
+                    return '#22c55e';
+                },
+
+                getTextColor(percentage) {
+                    if (percentage >= 100) return 'text-red-500';
+                    if (percentage >= 80) return 'text-amber-500';
+                    return 'text-green-600';
+                },
+
+                // 餐食
+                getMealLabel(type) {
+                    return {breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '零食'}[type];
+                },
+
+                getMealIcon(type) {
+                    return {breakfast: 'sun', lunch: 'cloud-sun', dinner: 'moon', snack: 'cookie'}[type];
+                },
+
+                getMealIconBg(type) {
+                    return {breakfast: 'bg-orange-100', lunch: 'bg-blue-100', dinner: 'bg-purple-100', snack: 'bg-pink-100'}[type];
+                },
+
+                getMealIconColor(type) {
+                    return {breakfast: 'text-orange-500', lunch: 'text-blue-500', dinner: 'text-purple-500', snack: 'text-pink-500'}[type];
+                },
+
+                getMealFoods(type) {
+                    return this.meals[type] || [];
+                },
+
+                getMealCalories(type) {
+                    const foods = this.meals[type] || [];
+                    const total = foods.reduce((sum, e) => sum + (e.food.calories * e.servings), 0);
+                    return total > 0 ? `${Math.round(total)} 卡路里` : '暂无记录';
+                },
+
+                getDayLabel(date) {
+                    const today = new Date();
+                    if (date.toDateString() === today.toDateString()) return '今天';
+                    const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+                    return '周' + weekdays[date.getDay()];
+                },
+
+                getDayColor(percentage) {
+                    if (percentage === 0) return 'bg-gray-100 text-gray-400';
+                    if (percentage > 100) return 'bg-red-100 text-red-500';
+                    if (percentage >= 80) return 'bg-amber-100 text-amber-600';
+                    return 'bg-green-100 text-green-600';
+                },
+
+                // 食物操作
+                showFoodDetail(food) {
+                    this.selectedFood = food;
+                    this.detailServings = 1;
+                    this.showDetailModal = true;
+                    this.updateIcons();
+                },
+
+                addFoodFromDetail() {
+                    this.pendingFood = this.selectedFood;
+                    this.pendingServings = this.detailServings;
+                    this.showDetailModal = false;
+                    this.showAddModal = true;
+                    this.updateIcons();
+                },
+
+                showAddFoodModal(mealType) {
+                    this.showPage('search');
+                    this.pendingMealType = mealType;
+                },
+
+                addFoodToMeal(type) {
+                    if (!this.pendingFood) return;
+                    const entry = {
+                        id: Date.now(),
+                        food: this.pendingFood,
+                        servings: this.pendingServings || 1,
+                        timestamp: new Date().toISOString()
+                    };
+                    this.meals[type].push(entry);
+                    this.saveData();
+                    this.showAddModal = false;
+                    this.pendingFood = null;
+                    this.pendingServings = 1;
+                    this.showPage('home');
+                },
+
+                deleteEntry(mealType, entryId) {
+                    this.meals[mealType] = this.meals[mealType].filter(e => e.id !== entryId);
+                    this.saveData();
+                },
+
+                // 拍照识别
+                handleFileSelect(event) {
+                    const file = event.target.files[0];
+                    if (!file || !file.type.startsWith('image/')) return;
+                    if (file.size > 5 * 1024 * 1024) {
+                        alert('图片过大，最大5MB');
+                        return;
+                    }
+                    this.selectedFile = file;
+                    const reader = new FileReader();
+                    reader.onload = (e) => { this.previewImage = e.target.result; };
+                    reader.readAsDataURL(file);
+                },
+
+                async recognizeFood() {
+                    if (!this.selectedFile) return;
+                    this.recognizing = true;
+                    try {
+                        // 转换为 base64
+                        const base64 = await new Promise(resolve => {
+                            const reader = new FileReader();
+                            reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+                            reader.readAsDataURL(this.selectedFile);
+                        });
+
+                        // 调用 Vercel API
+                        const response = await fetch('/api/recognize', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({image: base64})
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            this.recognizedFoods = result.foods;
+                        } else {
+                            alert('识别失败: ' + (result.error || '未知错误'));
+                        }
+                    } catch(e) {
+                        alert('识别失败: ' + e.message);
+                    } finally {
+                        this.recognizing = false;
+                    }
+                },
+
+                addRecognizedFood(food) {
+                    // 转换为标准格式
+                    this.pendingFood = {
+                        id: Date.now(),
+                        name: food.name,
+                        calories: food.estimated_calories,
+                        carbs: food.estimated_macros.carbohydrates,
+                        protein: food.estimated_macros.protein,
+                        fat: food.estimated_macros.fat,
+                        serving_size: 100,
+                        serving_unit: 'g'
+                    };
+                    this.pendingServings = food.suggested_servings || 1;
+                    this.showAddModal = true;
+                    this.updateIcons();
+                },
+
+                // 设置
+                saveGoal() {
+                    this.dailyGoal = parseInt(this.tempGoal);
+                    this.editingGoal = false;
+                    this.saveData();
+                },
+
+                clearAllData() {
+                    if (confirm('确定要清空所有数据吗？此操作不可恢复。')) {
+                        localStorage.clear();
+                        location.reload();
+                    }
+                }
+            };
+        }
+    </script>
+</body>
+</html>

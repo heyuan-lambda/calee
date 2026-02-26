@@ -4,15 +4,5 @@
       "src": "api/recognize.py",
       "use": "@vercel/python"
     }
-  ],
-  "routes": [
-    {
-      "src": "/api/recognize",
-      "dest": "/api/recognize.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/frontend/index.html"
-    }
   ]
 }
