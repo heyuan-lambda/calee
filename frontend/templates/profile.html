@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}CalEE - 个人中心{% endblock %}
+
+{% block content %}
+<div x-data="profilePage()" x-init="initProfile()" class="max-w-lg mx-auto">
+    <header class="bg-gradient-to-br from-primary-500 to-primary-600 text-white p-6 rounded-b-3xl">
+        <div class="flex items-center gap-4">
+            <div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center">
+                <i data-lucide="user" class="w-10 h-10"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold">CalEE 用户</h1>
+                <p class="text-primary-100">坚持记录，健康生活</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="p-4 space-y-4">
+        <!-- 今日目标 -->
+        <div class="bg-white rounded-xl p-4 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="font-semibold">每日热量目标</h3>
+                <button @click="editingGoal = true" class="text-primary-600 text-sm">编辑</button>
+            </div>
+
+            <div x-show="!editingGoal">
+                <p class="text-3xl font-bold text-primary-600" x-text="dailyGoal + ' 卡'"></p>
+                <p class="text-sm text-gray-500 mt-1">建议范围: 1200-2000 卡</p>
+            </div>
+
+            <div x-show="editingGoal" class="flex items-center gap-3">
+                <input
+                    type="number"
+                    x-model="tempGoal"
+                    min="500"
+                    max="5000"
+                    step="50"
+                    class="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                <button
+                    @click="saveGoal"
+                    class="px-4 py-2 bg-primary-500 text-white rounded-lg"
+                >
+                    保存
+                </button>
+                <button
+                    @click="editingGoal = false; tempGoal = dailyGoal"
+                    class="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg"
+                >
+                    取消
+                </button>
+            </div>
+
+            <!-- 快速选择 -->
+            <div x-show="editingGoal" class="flex gap-2 mt-3">
+                <button @click="tempGoal = 1200" class="flex-1 py-2 bg-gray-100 rounded-lg text-sm">1200</button>
+                <button @click="tempGoal = 1500" class="flex-1 py-2 bg-gray-100 rounded-lg text-sm">1500</button>
+                <button @click="tempGoal = 1800" class="flex-1 py-2 bg-gray-100 rounded-lg text-sm">1800</button>
+                <button @click="tempGoal = 2000" class="flex-1 py-2 bg-gray-100 rounded-lg text-sm">2000</button>
+            </div>
+        </div>
+
+        <!-- 功能菜单 -->
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <a href="/progress" class="flex items-center justify-between p-4 border-b border-gray-100 active:bg-gray-50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="bar-chart-2" class="w-5 h-5 text-blue-500"></i>
+                    </div>
+                    <span>进度统计</span>
+                </div>
+                <i data-lucide="chevron-right" class="w-5 h-5 text-gray-300"></i>
+            </a>
+
+            <a href="#" class="flex items-center justify-between p-4 border-b border-gray-100 active:bg-gray-50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="utensils" class="w-5 h-5 text-green-500"></i>
+                    </div>
+                    <span>我的食物</span>
+                </div>
+                <i data-lucide="chevron-right" class="w-5 h-5 text-gray-300"></i>
+            </a>
+
+            <a href="#" class="flex items-center justify-between p-4 active:bg-gray-50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="settings" class="w-5 h-5 text-orange-500"></i>
+                    </div>
+                    <span>设置</span>
+                </div>
+                <i data-lucide="chevron-right" class="w-5 h-5 text-gray-300"></i>
+            </a>
+        </div>
+
+        <!-- 关于 -->
+        <div class="bg-white rounded-xl p-4 shadow-sm">
+            <h3 class="font-semibold mb-3">关于 CalEE</h3>
+            <p class="text-sm text-gray-600 mb-2">
+                CalEE 是一款简洁易用的饮食热量追踪应用，帮助您记录每日饮食，控制卡路里摄入。
+            </p>
+            <p class="text-sm text-gray-500">版本 1.0.0</p>
+        </div>
+
+        <!-- 反馈 -->
+        <div class="bg-white rounded-xl p-4 shadow-sm">
+            <h3 class="font-semibold mb-3">反馈与建议</h3>
+            <p class="text-sm text-gray-600 mb-3">
+                如果您有任何问题或建议，欢迎联系我们。
+            </p>
+            <a href="mailto:feedback@calee.app" class="inline-flex items-center gap-2 text-primary-600">
+                <i data-lucide="mail" class="w-4 h-4"></i>
+                feedback@calee.app
+            </a>
+        </div>
+    </main>
+</div>
+
+<script>
+function profilePage() {
+    return {
+        dailyGoal: 1200,
+        tempGoal: 1200,
+        editingGoal: false,
+
+        async initProfile() {
+            await this.loadGoal();
+            lucide.createIcons();
+        },
+
+        async loadGoal() {
+            try {
+                const response = await fetch('/api/v1/dashboard/summary');
+                const result = await response.json();
+                if (result.success) {
+                    this.dailyGoal = result.data.calorie_goal;
+                    this.tempGoal = result.data.calorie_goal;
+                }
+            } catch (error) {
+                console.error('加载目标失败:', error);
+            }
+        },
+
+        async saveGoal() {
+            try {
+                const response = await fetch('/api/v1/dashboard/goals/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ daily_calorie_goal: parseInt(this.tempGoal) })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    this.dailyGoal = parseInt(this.tempGoal);
+                    this.editingGoal = false;
+                    alert('目标已更新');
+                }
+            } catch (error) {
+                console.error(error);
+                alert('更新失败');
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

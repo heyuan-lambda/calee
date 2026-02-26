@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}CalEE - 食物详情{% endblock %}
+
+{% block content %}
+<div x-data="foodDetail()" x-init="initFoodDetail()" class="max-w-lg mx-auto">
+    <!-- 食物图片 -->
+    <div class="relative">
+        <div class="w-full h-56 bg-gray-200 flex items-center justify-center">
+            <img x-show="food.image_url" :src="food.image_url" class="w-full h-full object-cover">
+            <i x-show="!food.image_url" data-lucide="apple" class="w-20 h-20 text-gray-300"></i>
+        </div>
+        <button @click="history.back()" class="absolute top-4 left-4 w-10 h-10 bg-white/80 backdrop-blur rounded-full flex items-center justify-center shadow">
+            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+        </button>
+    </div>
+
+    <!-- 食物信息 -->
+    <div class="p-4">
+        <h1 class="text-2xl font-bold mb-1" x-text="food.name"></h1>
+        <p x-show="food.brand" class="text-gray-500 mb-4" x-text="food.brand"></p>
+
+        <!-- 热量卡片 -->
+        <div class="bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl p-6 text-white mb-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-primary-100 text-sm">每份热量</p>
+                    <p class="text-4xl font-bold" x-text="Math.round(food.calories_per_serving)"></p>
+                    <p class="text-primary-100">卡路里</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-2xl font-medium" x-text="food.serving_size"></p>
+                    <p class="text-primary-100" x-text="food.serving_unit"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 份量选择 -->
+        <div class="bg-white rounded-xl p-4 shadow-sm mb-4">
+            <h3 class="font-semibold mb-3">选择份量</h3>
+            <div class="flex items-center gap-4">
+                <button @click="adjustServings(-0.25)" class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+                    <i data-lucide="minus" class="w-5 h-5"></i>
+                </button>
+                <div class="flex-1 text-center">
+                    <p class="text-3xl font-bold" x-text="servings"></p>
+                    <p class="text-sm text-gray-500">份</p>
+                </div>
+                <button @click="adjustServings(0.25)" class="w-12 h-12 bg-primary-500 text-white rounded-full flex items-center justify-center">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <!-- 快速选择 -->
+            <div class="flex gap-2 mt-4">
+                <button @click="servings = 0.5" :class="servings === 0.5 ? 'bg-primary-500 text-white' : 'bg-gray-100'" class="flex-1 py-2 rounded-lg text-sm">0.5份</button>
+                <button @click="servings = 1" :class="servings === 1 ? 'bg-primary-500 text-white' : 'bg-gray-100'" class="flex-1 py-2 rounded-lg text-sm">1份</button>
+                <button @click="servings = 1.5" :class="servings === 1.5 ? 'bg-primary-500 text-white' : 'bg-gray-100'" class="flex-1 py-2 rounded-lg text-sm">1.5份</button>
+                <button @click="servings = 2" :class="servings === 2 ? 'bg-primary-500 text-white' : 'bg-gray-100'" class="flex-1 py-2 rounded-lg text-sm">2份</button>
+            </div>
+        </div>
+
+        <!-- 营养成分 -->
+        <div class="bg-white rounded-xl p-4 shadow-sm mb-4">
+            <h3 class="font-semibold mb-3">营养成分</h3>
+            <div class="space-y-3">
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="wheat" class="w-5 h-5 text-orange-500"></i>
+                        </div>
+                        <span>碳水化合物</span>
+                    </div>
+                    <span class="font-medium" x-text="Math.round(food.carbohydrates * servings) + ' g'"></span>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="drumstick" class="w-5 h-5 text-red-500"></i>
+                        </div>
+                        <span>蛋白质</span>
+                    </div>
+                    <span class="font-medium" x-text="Math.round(food.protein * servings) + ' g'"></span>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="droplet" class="w-5 h-5 text-yellow-500"></i>
+                        </div>
+                        <span>脂肪</span>
+                    </div>
+                    <span class="font-medium" x-text="Math.round(food.fat * servings) + ' g'"></span>
+                </div>
+                <div class="flex items-center justify-between py-2">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                            <i data-lucide="leaf" class="w-5 h-5 text-green-500"></i>
+                        </div>
+                        <span>纤维</span>
+                    </div>
+                    <span class="font-medium" x-text="Math.round(food.fiber * servings) + ' g'"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 总计 -->
+        <div class="bg-gray-50 rounded-xl p-4 mb-4">
+            <div class="flex items-center justify-between">
+                <span class="text-gray-600">总计热量</span>
+                <span class="text-2xl font-bold text-primary-600" x-text="Math.round(food.calories_per_serving * servings) + ' 卡'"></span>
+            </div>
+        </div>
+
+        <!-- 添加到餐食 -->
+        <button
+            @click="showMealSelector = true"
+            class="w-full py-4 bg-primary-500 text-white rounded-xl font-medium text-lg"
+        >
+            添加到记录
+        </button>
+    </div>
+
+    <!-- 选择餐食弹窗 -->
+    <div
+        x-show="showMealSelector"
+        class="fixed inset-0 bg-black/50 flex items-end justify-center z-50"
+        x-cloak
+        @click.self="showMealSelector = false"
+    >
+        <div class="bg-white w-full max-w-lg rounded-t-3xl p-6 slide-up">
+            <h3 class="text-lg font-semibold mb-4">选择添加到哪一餐</h3>
+            <div class="space-y-2">
+                <template x-for="mealType in ['breakfast', 'lunch', 'dinner', 'snack']" :key="mealType">
+                    <button
+                        @click="addToMeal(mealType)"
+                        class="w-full py-3 bg-gray-100 rounded-xl text-left px-4 hover:bg-gray-200 transition flex items-center gap-3"
+                    >
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center" :class="getMealIconBg(mealType)">
+                            <i :data-lucide="getMealIcon(mealType)" class="w-5 h-5" :class="getMealIconColor(mealType)"></i>
+                        </div>
+                        <span x-text="getMealLabel(mealType)"></span>
+                    </button>
+                </template>
+            </div>
+            <button
+                @click="showMealSelector = false"
+                class="w-full mt-4 py-3 text-gray-500"
+            >
+                取消
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function foodDetail() {
+    return {
+        foodId: null,
+        food: {},
+        servings: 1,
+        showMealSelector: false,
+
+        async initFoodDetail() {
+            // 从 URL 获取食物 ID
+            const pathParts = window.location.pathname.split('/');
+            this.foodId = parseInt(pathParts[pathParts.length - 1]);
+
+            await this.loadFood();
+            lucide.createIcons();
+        },
+
+        async loadFood() {
+            try {
+                const response = await fetch(`/api/v1/foods/${this.foodId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    this.food = result.data;
+                } else {
+                    alert('加载失败');
+                    history.back();
+                }
+            } catch (error) {
+                console.error('加载食物失败:', error);
+                history.back();
+            }
+        },
+
+        adjustServings(delta) {
+            this.servings = Math.max(0.25, Math.min(10, this.servings + delta));
+        },
+
+        async addToMeal(mealType) {
+            try {
+                const response = await fetch('/api/v1/meals', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        meal_type: mealType,
+                        entries: [{
+                            food_id: this.foodId,
+                            servings: this.servings,
+                        }]
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert('已添加到' + this.getMealLabel(mealType));
+                    this.showMealSelector = false;
+                    history.back();
+                } else {
+                    alert(result.message || '添加失败');
+                }
+            } catch (error) {
+                console.error(error);
+                alert('添加失败');
+            }
+        },
+
+        getMealLabel(type) {
+            const labels = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '零食' };
+            return labels[type];
+        },
+
+        getMealIcon(type) {
+            const icons = { breakfast: 'sun', lunch: 'cloud-sun', dinner: 'moon', snack: 'cookie' };
+            return icons[type];
+        },
+
+        getMealIconBg(type) {
+            const bgs = { breakfast: 'bg-orange-100', lunch: 'bg-blue-100', dinner: 'bg-purple-100', snack: 'bg-pink-100' };
+            return bgs[type];
+        },
+
+        getMealIconColor(type) {
+            const colors = { breakfast: 'text-orange-500', lunch: 'text-blue-500', dinner: 'text-purple-500', snack: 'text-pink-500' };
+            return colors[type];
+        }
+    };
+}
+</script>
+{% endblock %}
