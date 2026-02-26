@@ -1,25 +1,21 @@
 {
   "builds": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "api/test.py",
+      "src": "api/recognize.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/test",
-      "dest": "/api/test.py"
+      "src": "/api/recognize",
+      "dest": "/api/recognize.py"
     },
     {
       "handle": "filesystem"
     },
     {
       "src": "/(.*)",
-      "dest": "/api/index.py"
+      "dest": "/frontend/$1"
     }
   ]
 }
