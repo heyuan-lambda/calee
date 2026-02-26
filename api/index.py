@@ -1,10 +1,8 @@
 """
 Vercel serverless function entry point for CalEE
-
-This file serves as the entry point for Vercel's Python runtime.
 """
-import sys
 import os
+import sys
 
 # 获取项目根目录
 root_dir = os.path.dirname(os.path.dirname(__file__))
@@ -14,22 +12,24 @@ backend_dir = os.path.join(root_dir, 'backend')
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
-# 环境变量设置
-if 'DATABASE_URL' not in os.environ:
-    # 使用 Vercel 的 tmp 目录存储数据库
-    os.environ['DATABASE_URL'] = 'sqlite+aiosqlite:///tmp/calee.db'
-
-if 'UPLOAD_DIR' not in os.environ:
-    os.environ['UPLOAD_DIR'] = '/tmp/uploads'
+# 设置环境变量（必须在导入前设置）
+os.environ.setdefault('DATABASE_URL', 'sqlite+aiosqlite:///tmp/calee.db')
+os.environ.setdefault('DASHSCOPE_API_URL', 'https://dashscope.aliyuncs.com/compatible-mode/v1')
+os.environ.setdefault('UPLOAD_DIR', '/tmp/uploads')
+os.environ.setdefault('ALLOW_ORIGINS', '*')
 
 # 确保上传目录存在
 os.makedirs('/tmp/uploads', exist_ok=True)
 
-# 导入 FastAPI 应用
-from app.main import app
-
-# 使用 Mangum 将 ASGI 应用转换为 Vercel 兼容的 handler
-from mangum import Mangum
-
-# 创建 Vercel 兼容的 handler
-handler = Mangum(app, lifespan="off")
+# 导入应用
+try:
+    from app.main import app
+    from mangum import Mangum
+    handler = Mangum(app, lifespan="off")
+except Exception as e:
+    # 如果导入失败，返回一个简单的错误处理函数
+    def handler(event, context):
+        return {
+            'statusCode': 500,
+            'body': f'Import error: {str(e)}'
+        }
