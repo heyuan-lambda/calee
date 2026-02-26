@@ -1,8 +1,0 @@
-{
-  "builds": [
-    {
-      "src": "api/recognize.py",
-      "use": "@vercel/python"
-    }
-  ]
-}
