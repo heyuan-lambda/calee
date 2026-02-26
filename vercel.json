@@ -1,35 +1,17 @@
 {
-  "version": 2,
   "builds": [
     {
-      "src": "backend/app/main.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "15mb",
-        "runtime": "python3.11"
-      }
+      "src": "api/index.py",
+      "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/api/v1/(.*)",
-      "dest": "backend/app/main.py"
-    },
-    {
-      "src": "/uploads/(.*)",
-      "dest": "backend/app/main.py"
-    },
-    {
-      "src": "/static/(.*)",
-      "dest": "frontend/static/$1"
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
-      "dest": "backend/app/main.py"
+      "dest": "/api/index.py"
     }
-  ],
-  "env": {
-    "DATABASE_URL": "@database_url",
-    "DASHSCOPE_API_KEY": "@dashscope_api_key"
-  }
+  ]
 }

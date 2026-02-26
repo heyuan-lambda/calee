@@ -1,0 +1,24 @@
+# FastAPI and ASGI server
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+mangum>=0.17.0
+
+# Database
+sqlalchemy[asyncio]>=2.0.36
+aiosqlite>=0.20.0
+
+# Data validation
+pydantic>=2.10.0
+pydantic-settings>=2.6.0
+
+# HTTP client
+httpx>=0.28.0
+
+# File handling
+python-multipart>=0.0.12
+
+# Templates
+jinja2>=3.1.4
+
+# Date utilities
+python-dateutil>=2.9.0
